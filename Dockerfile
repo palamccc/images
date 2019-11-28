@@ -77,7 +77,8 @@ RUN mkdir build \
 --group=nginx" \
     && make -j$(nproc) \
     && ldconfig \
-    && cd ..
+    && cd .. \
+    && rm -Rf build
 
 # Ensure nginx directories exist
 RUN mkdir -p -m 700 /var/lib/nginx \
