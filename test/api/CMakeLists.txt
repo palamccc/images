@@ -54,17 +54,29 @@ add_library(catch2_main OBJECT
         similar_image.cpp
         test_environment.h
         )
-target_include_directories(catch2_main
-        PRIVATE
-            ${VIPS_INCLUDE_DIRS}
-        )
-target_link_libraries(catch2_main
-        PUBLIC
-            ${PROJECT_NAME}
-            Catch2::Catch2
-        PRIVATE
-            ${VIPS_LDFLAGS}
-        )
+
+# target_link_libraries on object libraries only works with CMake >= 3.12.
+if (${CMAKE_VERSION} VERSION_LESS "3.12.0")
+    target_include_directories(catch2_main
+            PUBLIC
+                ${PROJECT_SOURCE_DIR}/include
+                $<TARGET_PROPERTY:Catch2::Catch2,INTERFACE_INCLUDE_DIRECTORIES>
+            PRIVATE
+                ${VIPS_INCLUDE_DIRS}
+            )
+else()
+    target_include_directories(catch2_main
+            PRIVATE
+                ${VIPS_INCLUDE_DIRS}
+            )
+    target_link_libraries(catch2_main
+            PUBLIC
+                ${PROJECT_NAME}
+                Catch2::Catch2
+            PRIVATE
+                ${VIPS_LDFLAGS}
+            )
+endif()
 
 file(GLOB_RECURSE files "${CMAKE_CURRENT_SOURCE_DIR}/unit-*.cpp")
 foreach (file ${files})
@@ -93,13 +105,13 @@ foreach (file ${files})
             )
     add_test(NAME "${testcase}"
             COMMAND ${testcase}
-            WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+            WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
             )
 
     if (ENABLE_VALGRIND)
         add_test(NAME "${testcase}_valgrind"
                 COMMAND ${MEMCHECK_COMMAND} ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/${testcase}
-                WORKING_DIRECTORY ${CMAKE_SOURCE_DIR}
+                WORKING_DIRECTORY ${PROJECT_SOURCE_DIR}
                 )
         set_tests_properties("${testcase}_valgrind" PROPERTIES LABELS "valgrind")
     endif()

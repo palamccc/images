@@ -13,7 +13,7 @@ const int MAX_PAGES = 256;
 const int MAX_TARGET_SIZE = 71000000;
 
 // See `buffer.cpp`
-const bool FAIL_ON_ERROR = true;
+const bool FAIL_ON_ERROR = false;
 
 // Set to true in order to have a greater advantage of the JPEG
 // shrink-on-load feature. You can set this to false for more
@@ -279,6 +279,10 @@ VImage Thumbnail::shrink_on_load(const VImage &image,
 
         return VImage::new_from_buffer(buffer, "",
                                        load_options->set("scale", scale));
+#if VIPS_VERSION_AT_LEAST(8, 9, 0)
+    // Retrieving a non-existent thumbnail from a HEIF image was terribly slow
+    // before libvips 8.9.0. See:
+    // https://github.com/libvips/libvips/commit/1ef1b2d9870d8be9c1a063a47f0c745c04a127d3
     } else if (image_type == ImageType::Heif) {
         append_page_options(load_options);
 
@@ -286,20 +290,12 @@ VImage Thumbnail::shrink_on_load(const VImage &image,
         auto thumb = VImage::new_from_buffer(
             buffer, "", load_options->set("thumbnail", true));
 
-        double hshrink;
-        double vshrink;
-
-        std::tie(hshrink, vshrink) = resolve_shrink(width, height);
-
-        int target_width =
-            static_cast<int>(std::rint(static_cast<double>(width) / hshrink));
-        int target_height =
-            static_cast<int>(std::rint(static_cast<double>(height) / vshrink));
-
-        // Use the thumbnail if it's larger than our target
-        if (thumb.width() >= target_width && thumb.height() >= target_height) {
+        // Use the thumbnail if, by using it, we could get a factor >= * 1.0,
+        // ie. we would not need to expand the thumbnail.
+        if (resolve_common_shrink(thumb.width(), thumb.height()) >= 1.0) {
             return thumb;
         }
+#endif
     }
 
     // Still here? Just return the original image
