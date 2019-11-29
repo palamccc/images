@@ -27,7 +27,12 @@ RUN dnf install -y dnf-utils \
 # since libjpeg-turbo is installed in a non-standard prefix
 ENV PKG_CONFIG_PATH=/opt/libjpeg-turbo/lib64/pkgconfig${PKG_CONFIG_PATH:+:${PKG_CONFIG_PATH}}
 
+WORKDIR /var/www/imagesweserv
+COPY . .
+
 # Install libvips and needed dependencies
+# Build CMake-based project
+# Create nginx user and group
 RUN dnf install -y epel-release \
     && rpmkeys --import file:///etc/pki/rpm-gpg/RPM-GPG-KEY-EPEL-8 \
     && dnf config-manager --set-enabled PowerTools \
@@ -39,23 +44,17 @@ RUN dnf install -y epel-release \
     && dnf install -y --setopt=tsflags=nodocs \
         git \
         cmake3 \
+        vips-full \
         vips-full-devel \
         make \
         gcc \
         gcc-c++ \
         openssl-devel \
         pcre-devel \
-        zlib-devel
-
-# Create nginx user and group
-RUN groupadd nginx \
-    && useradd -r -g nginx -s /sbin/nologin -c "Nginx web server" nginx
-
-WORKDIR /var/www/imagesweserv
-COPY . .
-
-# Build CMake-based project
-RUN mkdir build \
+        zlib-devel \
+    && groupadd nginx \
+    && useradd -r -g nginx -s /sbin/nologin -c "Nginx web server" nginx \
+    && mkdir build \
     && cd build \
     && cmake3 .. \
        -DCMAKE_BUILD_TYPE=Release \
@@ -78,7 +77,18 @@ RUN mkdir build \
     && make -j$(nproc) \
     && ldconfig \
     && cd .. \
-    && rm -Rf build
+    && rm -Rf build \
+    && dnf remove -y \
+      dnf-utils \
+      git \
+      cmake3 \
+      vips-full-devel \
+      make \
+      gcc \
+      gcc-c++ \
+      openssl-devel \
+      pcre-devel \
+      zlib-devel
 
 # Ensure nginx directories exist
 RUN mkdir -p -m 700 /var/lib/nginx \
