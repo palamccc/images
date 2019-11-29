@@ -77,7 +77,7 @@ RUN dnf install -y epel-release \
     && make -j$(nproc) \
     && ldconfig \
     && cd .. \
-    && rm -Rf build \
+    && rm -Rf build /var/cache/* \
     && dnf remove -y \
       dnf-utils \
       git \
